@@ -1,56 +1,64 @@
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+// src/pages/AuthCallback.jsx
+import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
-export default function AuthCallback() {
-  const navigate = useNavigate();
+export default function AuthCallback({ onNavigate }) {
+  const [status, setStatus] = useState("Processando login...");
 
   useEffect(() => {
-    const finishLogin = async () => {
+    const handleCallback = async () => {
       try {
-        const href = window.location.href;
-        const hasCode = href.includes("?code=");
-        const hasHashTokens =
-          window.location.hash.includes("access_token=") ||
-          window.location.hash.includes("refresh_token=");
+        const url = new URL(window.location.href);
+        const hash = url.hash;
 
-        // 1) Fluxo PKCE (code)
-        if (hasCode) {
-          const { error } = await supabase.auth.exchangeCodeForSession(href);
-          if (error) throw error;
+        // 1. Troca de código (PKCE)
+        const code = url.searchParams.get("code");
+        if (code) {
+          await supabase.auth.exchangeCodeForSession(code);
+        }
 
-          navigate("/", { replace: true });
+        // 2. Verifica sessão ativa (Supabase processa o hash automaticamente no getSession)
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) throw error;
+        
+        if (!session) {
+          // Se não tem sessão, volta pro login
+          onNavigate("auth");
           return;
         }
 
-        // 2) Fluxo implicit (hash) — supabase lê o hash e cria session
-        if (hasHashTokens) {
-          // Em versões atuais, isso já “captura” o hash e cria a session
-          const { data, error } = await supabase.auth.getSession();
-          if (error) throw error;
+        // 3. Verifica se é Recuperação de Senha
+        // O Supabase manda "type=recovery" no hash ou query param
+        const isRecovery = 
+          hash.includes("type=recovery") || 
+          url.searchParams.get("type") === "recovery";
 
-          if (data?.session) {
-            // limpa o hash da URL (opcional, deixa mais bonito)
-            window.history.replaceState({}, document.title, window.location.pathname);
-            navigate("/", { replace: true });
-            return;
-          }
+        // Limpa a URL para não ficar suja com tokens
+        window.history.replaceState({}, document.title, "/");
+
+        if (isRecovery) {
+          setStatus("Redirecionando para criar nova senha...");
+          // Manda para a rota de reset
+          onNavigate("reset_password");
+        } else {
+          setStatus("Login confirmado! Redirecionando...");
+          // Manda para o dashboard
+          onNavigate("dashboard");
         }
 
-        // 3) Fallback: se não achou nada, manda pro /auth
-        navigate("/auth", { replace: true });
       } catch (e) {
-        console.error("Auth callback error:", e?.message || e);
-        navigate("/auth", { replace: true });
+        console.error("Erro no callback:", e);
+        onNavigate("auth");
       }
     };
 
-    finishLogin();
-  }, [navigate]);
+    handleCallback();
+  }, [onNavigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center text-zinc-500">
-      Finalizando login...
+    <div className="min-h-screen flex items-center justify-center bg-zinc-50 text-zinc-500 font-medium">
+      {status}
     </div>
   );
 }
