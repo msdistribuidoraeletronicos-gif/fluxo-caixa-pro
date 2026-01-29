@@ -80,10 +80,15 @@ import ProfileView from "./pages/ProfileView";
 import PlansView from "./pages/PlansView";
 
 // -----------------------------
-// ✅ CONFIGURAÇÃO DO BACKEND
+// ✅ CONFIGURAÇÃO DO BACKEND (CORRIGIDA)
 // -----------------------------
-const BACKEND_URL =
-  import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
+// Em DEV usa localhost, em PROD usa caminho relativo (proxy do Vercel)
+const apiUrl = (path) => {
+  const base = import.meta.env.DEV
+    ? import.meta.env.VITE_BACKEND_URL || "http://localhost:3001"
+    : "";
+  return `${base}${path}`;
+};
 
 // -----------------------------
 // ✅ HELPER FUNCTIONS GLOBAIS
@@ -1672,8 +1677,9 @@ export default function App() {
                             "brand"
                           );
 
+                          // ✅ USANDO apiUrl PARA PATH RELATIVO EM PROD
                           const r = await fetch(
-                            `${BACKEND_URL}/checkout/create-preference`,
+                            apiUrl("/api/checkout/create-preference"), 
                             {
                               method: "POST",
                               headers: {

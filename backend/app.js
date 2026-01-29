@@ -4,6 +4,8 @@ import express from "express";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
 import fetch from "node-fetch";
+import "dotenv/config";
+import fetch from "node-fetch";
 
 const app = express();
 
